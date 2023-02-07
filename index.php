@@ -1,39 +1,40 @@
 <?php 
 
-function getDays($stringDays) {
-    $separator01 = "/";
-    $separator02 = "-";
+const WEEK_DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const SEPARATOR_DASH = '-';
+const SEPARATOR_SLASH = '/';
+const SEPARATOR_COLON = ':';
+const SEPARATOR_SEMICOLON = ';';
+const SEPARATOR_AM = 'AM';
+const SEPARATOR_PM = 'PM';
+const EMPTY_ARRAY = [];
+const INITIAL_START_HOUR_OF_DAY = 0;
+const LAST_START_HOUR_OF_DAY = 23;
+const MIDDAY_HOUR = 12;
+const ACTIVE_HOUR = 1;
 
-    $daysOfWeek = array(
-        'Mo',
-        'Tu',
-        'We',
-        'Th',
-        'Fr',
-        'Sa',
-        'Su',
-    );
+function getDays($daysString) {
 
-    $postion01 = strpos($stringDays, $separator01);
-    $postion02 = strpos($stringDays, $separator02);
+    $postion01 = strpos($daysString, SEPARATOR_SLASH);
+    $postion02 = strpos($daysString, SEPARATOR_DASH);
 
     if (!($postion01 || $postion02)) {
-        return array();
+        return EMPTY_ARRAY;
     }
 
     if($postion01){
-        $daysArray = explode($separator01, $stringDays);
+        $daysArray = explode(SEPARATOR_SLASH, $daysString);
     }
 
     if($postion02){
-        $daysArray = explode($separator02, $stringDays);
-        $firstDayIndex = array_search($daysArray[0], $daysOfWeek);
-        $lastDayIndex = array_search($daysArray[1], $daysOfWeek);
+        $daysArray = explode(SEPARATOR_DASH, $daysString);
+        $firstDayIndex = array_search($daysArray[0], WEEK_DAYS);
+        $lastDayIndex = array_search($daysArray[1], WEEK_DAYS);
         if ($firstDayIndex < $lastDayIndex) {
-            $daysArray = array_slice($daysOfWeek, $firstDayIndex, $lastDayIndex);
+            $daysArray = array_slice(WEEK_DAYS, $firstDayIndex, $lastDayIndex);
         } else {
-            $firstArray = array_slice($daysOfWeek, $firstDayIndex);
-            $secondArray = array_slice($daysOfWeek, 0, $lastDayIndex + 1);
+            $firstArray = array_slice(WEEK_DAYS, $firstDayIndex);
+            $secondArray = array_slice(WEEK_DAYS, 0, $lastDayIndex + 1);
             $daysArray = array_merge($firstArray, $secondArray);                        
         }
     }
@@ -42,29 +43,31 @@ function getDays($stringDays) {
 
 }
 
-function getDaySchedule($stringTime){
-    $hoursArray = explode('-', $stringTime);
+function getDaySchedule($timeString){
+    $hoursArray = explode(SEPARATOR_DASH, $timeString);
     $firstHourString = $hoursArray[0];
     $lastHourString = $hoursArray[1];
 
     $firstHourSuffix = substr($hoursArray[0], -2);
-    $initialHour = intval(substr($firstHourString, 0, strlen($firstHourString) - 2));
-    $initialHour = (($initialHour == 12) && ($firstHourSuffix == 'PM')) ? 0 : $initialHour;
-    $firstHour = $initialHour + getHoursToAdd($firstHourSuffix);
+
+    $firstHour = intval(substr($firstHourString, 0, strlen($firstHourString) - 2));
+    $firstHour = (($firstHour == MIDDAY_HOUR) && ($firstHourSuffix == SEPARATOR_PM)) ? 0 : $firstHour;
+    $initialHour = $firstHour + getHoursToAdd($firstHourSuffix);
+
 
     $lastHourSuffix = substr($hoursArray[1], -2);
     $lastHour = intval(substr($lastHourString, 0, strlen($lastHourString) - 2));
-    $lastHour = (($lastHour == 12) && ($lastHourSuffix == 'PM')) ? 0 : $lastHour;
+    $lastHour = (($lastHour == MIDDAY_HOUR) && ($lastHourSuffix == SEPARATOR_PM)) ? 0 : $lastHour;
     $endHour = $lastHour + getHoursToAdd($lastHourSuffix);
 
-    $hoursRange = getHoursArray($firstHour, $endHour);
+    $hoursRange = getHoursArray($initialHour, $endHour);
 
     return $hoursRange;
 }
 
 function getAllDaySchedule($stringDayTime){
-    $stringDayTimeArray = explode("/", $stringDayTime);
-    $allDaySchedule = array();
+    $stringDayTimeArray = explode(SEPARATOR_SLASH, $stringDayTime);
+    $allDaySchedule = EMPTY_ARRAY;
     foreach($stringDayTimeArray as $oneDayString) {
         $oneStringArray = getDaySchedule($oneDayString);
         $allDaySchedule = mergeRangeSchedule($oneStringArray, $allDaySchedule);
@@ -74,6 +77,7 @@ function getAllDaySchedule($stringDayTime){
 
 function mergeDaysSchedule($newDaysSchedule, $currentDaysSchedule){
     $currentSchedule = $currentDaysSchedule;
+
     foreach($newDaysSchedule as $key => $oneDaySchedule) {
         if (!(array_key_exists($key, $currentSchedule))){
             $currentSchedule[$key] = $oneDaySchedule;
@@ -81,11 +85,17 @@ function mergeDaysSchedule($newDaysSchedule, $currentDaysSchedule){
             // Add only hours not registered
             foreach($oneDaySchedule as $hourKey => $value) {
                 if (!(array_key_exists($hourKey, $currentSchedule[$key]))){
-                    $currentSchedule[$key][$hourKey] =  1;
+                    $currentSchedule[$key][$hourKey] =  ACTIVE_HOUR;
                 }
             }
         }
     }
+    ksort($currentSchedule[$key]);
+
+
+
+    
+    return $currentSchedule;
 }
 
 function assignScheduleToDays($days, $schedule){
@@ -100,7 +110,7 @@ function mergeRangeSchedule($newRange, $currentRange){
     $resultRange = $currentRange;
     foreach($newRange as $key => $oneHour) {
         if (!(array_key_exists($key, $resultRange))){
-            $resultRange[$key] = 1;
+            $resultRange[$key] = ACTIVE_HOUR;
         }
     }
 
@@ -109,27 +119,25 @@ function mergeRangeSchedule($newRange, $currentRange){
 }
 
 function getHoursArray($firstHour, $secondHour){
-    $firstHourDay = 0;
-    $lastHourDay = 23;
-    $hours = array();
+    $hours = EMPTY_ARRAY;
     if ($firstHour < $secondHour) {
         for($i = $firstHour; $i < $secondHour; $i++){
-            $hours[$i] = 1;
+            $hours[$i] = ACTIVE_HOUR;
         }
     } else {
-        for($i = $firstHour; $i <= $lastHourDay; $i++){
-            $hours[$i] = 1;
+        for($i = $firstHour; $i <= LAST_START_HOUR_OF_DAY; $i++){
+            $hours[$i] = ACTIVE_HOUR;
         }
-        for($i = $firstHourDay; $i < $secondHour; $i++){
-            $hours[$i] = 1;
+        for($i = INITIAL_START_HOUR_OF_DAY; $i < $secondHour; $i++){
+            $hours[$i] = ACTIVE_HOUR;
         }
     }
     ksort($hours);
     return $hours;
 }
 
-function getHoursToAdd($stringHour){
-    if ($stringHour == 'PM') {
+function getHoursToAdd($separator){
+    if ($separator == SEPARATOR_PM) {
         return 12;
     } else {
         return 0;
@@ -137,25 +145,17 @@ function getHoursToAdd($stringHour){
 }
 
 function convertNumberDayToName($dayNumbers){
-    $daysOfWeek = array(
-        'Mo',
-        'Tu',
-        'We',
-        'Th',
-        'Fr',
-        'Sa',
-        'Su',
-    );
-    $dayIndex = array();
-    $dayNames = array();
+
+    $dayIndex = EMPTY_ARRAY;
+    $dayNames = EMPTY_ARRAY;
     foreach($dayNumbers as $key => $dayName ){
-        $index = array_search($dayName, $daysOfWeek);
+        $index = array_search($dayName, WEEK_DAYS);
         $dayIndex[] = $index;
     }
     sort($dayIndex);
     foreach($dayIndex as $index){
-        $name = $daysOfWeek[$index];
-        $dayNames[$name] = array();
+        $name = WEEK_DAYS[$index];
+        $dayNames[$name] = EMPTY_ARRAY;
     }
     return $dayNames;
 }
@@ -166,25 +166,22 @@ $stringDays = "Fr-Mo:12PM-4PM/6PM-8PM;Tu/Fr:3PM-8PM";
 //$stringDays ="Mo-Fr:7AM-8AM/10AM-11AM/12PM-1PM";
 //$stringDays ="Mo-Fr:4AM-8AM/7AM-1PM/9PM-1AM";
 
-$currentDays = array();
-$lineDaySchedule = explode(';', $stringDays);
+$currentDays = EMPTY_ARRAY;
+$lineDaySchedule = explode(SEPARATOR_SEMICOLON, $stringDays);
 
 echo $stringDays ; 
 
-$allDaysSchedule = array();
+$allDaysSchedule = EMPTY_ARRAY;
 foreach($lineDaySchedule as $lineDay) {
-    $dayString = explode(':', $lineDay);
+    $dayString = explode(SEPARATOR_COLON, $lineDay);
     $newDays = getDays($dayString[0]);
     $allDaySchedule= getAllDaySchedule($dayString[1]);
     $newDaysWithSchedule = assignScheduleToDays($newDays, $allDaySchedule);
-    mergeDaysSchedule($newDaysWithSchedule, $allDaysSchedule);
-    echo '<pre>';
-    print_r($newDaysWithSchedule);
-    echo '</pre>';
+    $allDaysSchedule = mergeDaysSchedule($newDaysWithSchedule, $allDaysSchedule);
 }
 
-// echo '<pre>';
-// print_r($newDays);
-// echo '</pre>';
+echo '<pre>aaaa';
+print_r($allDaysSchedule);
+echo '</pre>bbb';
 
 ?>
